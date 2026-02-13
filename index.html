@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>一字千金：主控顯示幕</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: 'Microsoft JhengHei', sans-serif; background: #0f172a; color: white; text-align: center; }
+        .box { border: 4px solid #fbbf24; margin: 20px auto; width: 80%; padding: 20px; border-radius: 20px; }
+        #peer-id { color: #4ade80; font-size: 1.5em; }
+        #question { font-size: 3em; margin: 20px; min-height: 1.5em; }
+        #status { font-size: 1.2em; color: #94a3b8; }
+        #score { font-size: 4em; color: #fbbf24; }
+        #result-display { font-size: 2em; color: #f87171; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>一字千金：派對主控台</h1>
+    <div id="status">正在啟動系統...</div>
+    <div id="peer-id-box">請在平板輸入連線 ID: <span id="peer-id">載入中...</span></div>
+    
+    <div class="box">
+        <div id="question">點擊下方開始遊戲</div>
+        <div id="result-display">等待作答...</div>
+    </div>
+
+    <div id="score">分數: 0</div>
+    <button onclick="nextQuestion()" style="font-size:1.5em; padding:10px 30px;">下一題</button>
+
+    <script>
+        // 題庫 (節錄範例，完整100題可在此數組擴充)
+        const quizData = [
+            { q: "請寫出「ㄨㄢˇ」救的「ㄨㄢˇ」", a: "挽" },
+            { q: "「走投無路」的「投」是否正確？(正確請寫投，錯誤寫正字)", a: "有" }, // 應為走投無路(投/頭常混淆，以此測試)
+            { q: "請寫出「ㄇㄟˋ」力的「ㄇㄟˋ」", a: "魅" },
+            { q: "找出錯字：這家餐廳裝「皇」氣派", a: "潢" },
+            { q: "成語填空：按部「〇」班", a: "就" },
+            { q: "請寫出「尷」的右半邊部件", a: "監" },
+            { q: "請寫出「ㄆㄧˋ」美商場的「ㄆㄧˋ」", a: "媲" },
+            { q: "請寫出「疊」字的部首", a: "田" }
+            // ... 您可以在此依照格式補足至 100 題
+        ];
+        // 快速生成100題範例(開發測試用)
+        for(let i=quizData.length; i<100; i++) quizData.push({q: `第 ${i+1} 題：請寫出「國」字`, a: "國"});
+
+        let score = 0;
+        let currentIdx = -1;
+        let peer, conn;
+
+        // 初始化 P2P 連線
+        peer = new Peer();
+        peer.on('open', id => {
+            document.getElementById('peer-id').innerText = id;
+            document.getElementById('status').innerText = "系統就緒，等待平板連線...";
+        });
+
+        peer.on('connection', c => {
+            conn = c;
+            document.getElementById('status').innerText = "✅ 平板已連線！";
+            conn.on('data', data => {
+                if(data.type === 'answer') checkAnswer(data.val);
+            });
+        });
+
+        function nextQuestion() {
+            currentIdx++;
+            if(currentIdx >= quizData.length) {
+                alert("遊戲結束！總分：" + score);
+                return;
+            }
+            const q = quizData[currentIdx];
+            document.getElementById('question').innerText = q.q;
+            document.getElementById('result-display').innerText = "等待作答...";
+            if(conn) conn.send({ type: 'new_question' });
+        }
+
+        function checkAnswer(userChar) {
+            const correct = quizData[currentIdx].a;
+            if(userChar === correct) {
+                score += 10;
+                document.getElementById('result-display').innerText = `✅ 正確！(辨識為：${userChar})`;
+                document.getElementById('result-display').style.color = "#4ade80";
+            } else {
+                document.getElementById('result-display').innerText = `❌ 錯誤！(辨識為：${userChar}，正解：${correct})`;
+                document.getElementById('result-display').style.color = "#f87171";
+            }
+            document.getElementById('score').innerText = "分數: " + score;
+        }
+    </script>
+</body>
+</html>
+
