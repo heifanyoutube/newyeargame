@@ -698,14 +698,30 @@
                 startNewQuestion(data.questionIndex);
             } else if (data.type === 'stroke') {
                 drawStroke(data.playerNumber, data.stroke);
+                // Forward stroke to admin
+                if (adminConn && adminConn.open) {
+                    adminConn.send(data);
+                }
             } else if (data.type === 'submit') {
                 handleSubmission(data.playerNumber, data.character);
+                // Send answer to admin
+                if (adminConn && adminConn.open) {
+                    adminConn.send({
+                        type: 'playerAnswer',
+                        playerNumber: data.playerNumber,
+                        character: data.character
+                    });
+                }
             } else if (data.type === 'appeal') {
                 handleAppeal(data.playerNumber);
             } else if (data.type === 'override') {
                 handleOverride(data.playerNumber, data.correct);
             } else if (data.type === 'clear') {
                 clearPlayerCanvas(data.playerNumber);
+                // Forward clear to admin
+                if (adminConn && adminConn.open) {
+                    adminConn.send(data);
+                }
             }
         }
 
