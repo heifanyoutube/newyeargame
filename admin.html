@@ -587,19 +587,59 @@
         });
 
         function connectToHost() {
-            const hostId = document.getElementById('hostIdInput').value.trim();
-            if (!hostId || hostId.length !== 4 || !/^\d+$/.test(hostId)) {
+            const hostIdInput = document.getElementById('hostIdInput').value.trim();
+            if (!hostIdInput || hostIdInput.length !== 4 || !/^\d+$/.test(hostIdInput)) {
                 alert('請輸入 4 位數字 ID');
                 return;
             }
 
+            // 嘗試所有可能的前綴 (a-z)
+            const possiblePrefixes = 'abcdefghijklmnopqrstuvwxyz'.split('');
+            let attemptIndex = 0;
+
             updateStatus('正在連線...');
 
-            peer = new Peer();
+            peer = new Peer({
+                debug: 2,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:global.stun.twilio.com:3478' }
+                    ]
+                }
+            });
+            
             peer.on('open', (id) => {
-                hostConn = peer.connect(hostId);
+                console.log('Admin peer opened with ID:', id);
+                tryConnect();
+            });
+
+            function tryConnect() {
+                if (attemptIndex >= possiblePrefixes.length) {
+                    updateStatus('找不到主控端，請確認 ID 是否正確');
+                    return;
+                }
+
+                const prefix = possiblePrefixes[attemptIndex];
+                const fullHostId = prefix + hostIdInput;
+                
+                console.log('Attempting to connect to:', fullHostId);
+                updateStatus(`正在連線... (嘗試 ${attemptIndex + 1}/${possiblePrefixes.length})`);
+
+                hostConn = peer.connect(fullHostId, { reliable: true });
+
+                const timeout = setTimeout(() => {
+                    if (hostConn && !hostConn.open) {
+                        hostConn.close();
+                        attemptIndex++;
+                        tryConnect();
+                    }
+                }, 2000);
 
                 hostConn.on('open', () => {
+                    clearTimeout(timeout);
+                    console.log('Connected to host:', fullHostId);
+                    
                     hostConn.send({
                         type: 'identify',
                         role: 'admin'
@@ -616,9 +656,15 @@
 
                 hostConn.on('error', (err) => {
                     console.error('Connection error:', err);
-                    updateStatus('連線錯誤：' + err.message);
+                    clearTimeout(timeout);
+                    attemptIndex++;
+                    if (attemptIndex < possiblePrefixes.length) {
+                        tryConnect();
+                    } else {
+                        updateStatus('連線失敗：' + err.message);
+                    }
                 });
-            });
+            }
 
             peer.on('error', (err) => {
                 console.error('Peer error:', err);
