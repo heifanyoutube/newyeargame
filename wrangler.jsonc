@@ -1,5 +1,5 @@
 {
-  "name": "你的專案名稱",
+  "name": "newyeargame",
   "compatibility_date": "2026-02-15",
-  "main": "src/index.ts" // 👈 確保這條路徑指向你真正的程式進入點（例如 index.js 或 index.ts）
+  "main": "src/index.html" // 👈 確保這條路徑指向你真正的程式進入點（例如 index.js 或 index.ts）
 }
