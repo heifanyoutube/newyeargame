@@ -1,246 +1,749 @@
-<!doctype html>
-<html lang="zh-Hant">
+<!DOCTYPE html>
+<html lang="zh-TW">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>一字千金 — Player 書寫端</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js"></script>
-  <style>
-    html,body{height:100%;margin:0;background:#071026;color:#e6f0f9;font-family:system-ui,"Noto Sans TC",sans-serif}
-    .wrap{display:flex;flex-direction:column;gap:8px;padding:12px;height:100vh;box-sizing:border-box}
-    .top{display:flex;gap:8px;align-items:center}
-    input,select{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#e6f0f9}
-    button{padding:10px 14px;border-radius:10px;border:none;cursor:pointer;background:#ffd166;color:#042036;font-weight:800}
-    .canvas-wrap{flex:1;background:#000;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-    canvas{touch-action:none;width:100%;height:100%;}
-    .footer{display:flex;gap:8px;align-items:center}
-    .small{font-size:13px;color:#9fb3c8}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>一字千金 | 選手端</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --primary: #FF6B35;
+            --secondary: #F7931E;
+            --accent: #FFD23F;
+            --correct: #00FF88;
+            --incorrect: #FF3366;
+            --bg-dark: #0A0E27;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #0A0E27 0%, #1a1f3a 100%);
+            color: white;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Connection Screen */
+        .connection-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .connection-screen h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 40px;
+        }
+
+        .input-box {
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 20px;
+        }
+
+        .input-box label {
+            display: block;
+            color: var(--accent);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .input-box input {
+            width: 100%;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid rgba(255, 107, 53, 0.3);
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            font-family: 'Orbitron', monospace;
+        }
+
+        .input-box input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(255, 107, 53, 0.3);
+        }
+
+        .connect-btn {
+            width: 100%;
+            max-width: 400px;
+            padding: 18px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(255, 107, 53, 0.4);
+            text-transform: uppercase;
+        }
+
+        .connect-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Game Screen */
+        .game-screen {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .game-screen.active {
+            display: flex;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .player-badge {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: var(--primary);
+            text-shadow: 0 0 10px rgba(255, 107, 53, 0.5);
+        }
+
+        .question-info {
+            text-align: center;
+            flex: 1;
+        }
+
+        .question-number {
+            font-size: 0.8rem;
+            color: var(--accent);
+            margin-bottom: 5px;
+        }
+
+        .question-text-header {
+            font-size: 1rem;
+            font-weight: 700;
+            max-width: 400px;
+            margin: 0 auto;
+            line-height: 1.4;
+        }
+
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #666;
+        }
+
+        .status-indicator.connected {
+            background: var(--correct);
+            box-shadow: 0 0 15px var(--correct);
+        }
+
+        /* Canvas Area */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        #drawingCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        .canvas-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        .canvas-overlay.hidden {
+            display: none;
+        }
+
+        .canvas-overlay-icon {
+            font-size: 5rem;
+            margin-bottom: 20px;
+        }
+
+        .canvas-overlay-text {
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+
+        /* Control Panel */
+        .control-panel {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            border-top: 2px solid rgba(255, 107, 53, 0.3);
+        }
+
+        .control-btn {
+            flex: 1;
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-clear {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, var(--correct), #00CC6A);
+            color: white;
+            box-shadow: 0 5px 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-appeal {
+            background: linear-gradient(135deg, var(--accent), #FFA500);
+            color: var(--bg-dark);
+            box-shadow: 0 5px 20px rgba(255, 211, 63, 0.3);
+            display: none;
+        }
+
+        .btn-appeal.visible {
+            display: block;
+        }
+
+        /* Result Overlay */
+        .result-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        .result-overlay.show {
+            display: flex;
+        }
+
+        .result-icon {
+            font-size: 8rem;
+            margin-bottom: 30px;
+            animation: result-pop 0.5s ease-out;
+        }
+
+        @keyframes result-pop {
+            0% { transform: scale(0) rotate(-180deg); }
+            60% { transform: scale(1.2) rotate(10deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+
+        .result-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 20px;
+        }
+
+        .result-overlay.correct .result-icon { color: var(--correct); }
+        .result-overlay.correct .result-text { color: var(--correct); text-shadow: 0 0 30px var(--correct); }
+        .result-overlay.incorrect .result-icon { color: var(--incorrect); }
+        .result-overlay.incorrect .result-text { color: var(--incorrect); text-shadow: 0 0 30px var(--incorrect); }
+
+        .result-message {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Waiting Screen */
+        .waiting-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 999;
+        }
+
+        .waiting-overlay.hidden {
+            display: none;
+        }
+
+        .waiting-spinner {
+            width: 80px;
+            height: 80px;
+            border: 5px solid rgba(255, 107, 53, 0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 30px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .waiting-text {
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+    </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="top">
-      <div style="display:flex;gap:8px;align-items:center">
-        <input id="hostId" placeholder="Host ID" />
-        <select id="slot">
-          <option value="1">Player 1</option>
-          <option value="2">Player 2</option>
-          <option value="3">Player 3</option>
-        </select>
-        <input id="name" placeholder="隊名 (例如：A隊)" />
-        <button id="join">加入 Host</button>
-      </div>
-      <div style="margin-left:auto" class="small">注意：需在 HTTPS 下運行以使用瀏覽器手寫 API</div>
+    <!-- Connection Screen -->
+    <div class="connection-screen" id="connectionScreen">
+        <h1>選手端</h1>
+        
+        <div class="input-box">
+            <label>主控端 ID</label>
+            <input type="text" id="hostIdInput" placeholder="請輸入 Host Peer ID">
+        </div>
+
+        <div class="input-box">
+            <label>選手編號</label>
+            <input type="number" id="playerNumberInput" min="1" max="3" value="1" placeholder="1, 2 或 3">
+        </div>
+
+        <button class="connect-btn" id="connectBtn">連線開始</button>
     </div>
 
-    <div class="canvas-wrap">
-      <canvas id="board"></canvas>
+    <!-- Game Screen -->
+    <div class="game-screen" id="gameScreen">
+        <div class="header">
+            <div class="player-badge" id="playerBadge">選手 1</div>
+            <div class="question-info">
+                <div class="question-number" id="questionNumber">等待題目...</div>
+                <div class="question-text-header" id="questionTextHeader"></div>
+            </div>
+            <div class="status-indicator" id="statusIndicator"></div>
+        </div>
+
+        <div class="canvas-area">
+            <canvas id="drawingCanvas"></canvas>
+            <div class="canvas-overlay" id="canvasOverlay">
+                <div class="canvas-overlay-icon">✍️</div>
+                <div class="canvas-overlay-text">等待題目開始...</div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <button class="control-btn btn-clear" id="clearBtn">清除</button>
+            <button class="control-btn btn-submit" id="submitBtn" disabled>送出答案</button>
+            <button class="control-btn btn-appeal" id="appealBtn">請求審核</button>
+        </div>
     </div>
 
-    <div class="footer">
-      <button id="clear">清除</button>
-      <button id="submit" style="background:#36d399">送出答案</button>
-      <button id="appeal" style="background:#ff6b6b">請求審核</button>
-      <div style="margin-left:auto" class="small">辨識結果：<span id="recognized">—</span></div>
+    <!-- Waiting Overlay -->
+    <div class="waiting-overlay" id="waitingOverlay">
+        <div class="waiting-spinner"></div>
+        <div class="waiting-text">辨識中...</div>
     </div>
-  </div>
 
-  <script>
-  /*****************
-   Player 端功能重點：
-   - 連線 Host（輸入 Host ID）
-   - 寫字時把筆跡以百分比座標即時傳送給 Host（type:'stroke'）
-   - 當按 Submit：嘗試使用瀏覽器 Handwriting Recognition API (navigator.createHandwritingRecognizer)
-     若不支援，會把 canvas 轉為影像並使用 Google Cloud Vision REST（需自行填 API_KEY）
-   - 可以按「請求審核」傳給 Host（type:'request_review'）
-  *****************/
+    <!-- Result Overlay -->
+    <div class="result-overlay" id="resultOverlay">
+        <div class="result-icon" id="resultIcon">✓</div>
+        <div class="result-text" id="resultText">正確！</div>
+        <div class="result-message">+10 分</div>
+    </div>
 
-  // 配置
-  const PEER_OPTIONS = {}; // 若需自建 PeerServer 可在此填入
-  const GOOGLE_CLOUD_VISION_API_KEY = ''; // 若要使用備援 OCR（非必填，若使用請填入）
-  const canvas = document.getElementById('board');
-  const ctx = canvas.getContext('2d');
-  let drawing = false;
-  let points = []; // 當前 stroke 的點集合（相對於 canvas）
-  let strokesForHost = []; // 每個 stroke 會轉為百分比陣列並傳送
-  let peer = null;
-  let conn = null;
+    <script>
+        let peer;
+        let hostConn;
+        let playerNumber = 1;
+        let canvas, ctx;
+        let isDrawing = false;
+        let lastX = 0, lastY = 0;
+        let strokes = [];
+        let currentStroke = [];
+        let canSubmit = false;
 
-  function fitCanvas(){
-    const wrap = canvas.parentElement;
-    canvas.width = wrap.clientWidth * 2; // hi-res backing
-    canvas.height = wrap.clientHeight * 2;
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    ctx.lineWidth = 12;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#fff';
-    ctx.fillStyle='#000';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-  }
-  window.addEventListener('resize', fitCanvas);
-  fitCanvas();
+        // Google Handwriting API Key (請替換為您的 API Key)
+        const GOOGLE_API_KEY = 'AIzaSyDGUf9Kt7pZwTLqE5Fw8bsFKA8fN1cHC_Y';
 
-  // Pointer events
-  canvas.addEventListener('pointerdown', e=>{
-    drawing=true;
-    points = [];
-    canvas.setPointerCapture(e.pointerId);
-    addPoint(e);
-  });
-  canvas.addEventListener('pointermove', e=>{
-    if (!drawing) return;
-    addPoint(e);
-    drawCurrent();
-  });
-  canvas.addEventListener('pointerup', e=>{
-    if (!drawing) return;
-    drawing=false;
-    addPoint(e);
-    commitStroke();
-    drawCurrent();
-  });
-  function addPoint(e){
-    const rect = canvas.getBoundingClientRect();
-    const px = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const py = (e.clientY - rect.top) * (canvas.height / rect.height);
-    points.push({x:px, y:py, t: Date.now()});
-  }
-  function drawCurrent(){
-    // redraw last stroke on overlay
-    // For performance we keep cumulative drawing on canvas itself
-    if (!points || points.length===0) return;
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i=1;i<points.length;i++) ctx.lineTo(points[i].x, points[i].y);
-    ctx.stroke();
-  }
-  function commitStroke(){
-    // store stroke as percent coords to send
-    const strokePercent = points.map(pt=>({x: pt.x / canvas.width, y: pt.y / canvas.height}));
-    strokesForHost.push(strokePercent);
-    // send to host immediately (for real-time sync)
-    if (conn && conn.open) conn.send({type:'stroke', points: strokePercent, width: 6, color:'#ffffff'});
-  }
+        document.getElementById('connectBtn').addEventListener('click', connectToHost);
+        document.getElementById('clearBtn').addEventListener('click', clearCanvas);
+        document.getElementById('submitBtn').addEventListener('click', submitAnswer);
+        document.getElementById('appealBtn').addEventListener('click', requestAppeal);
 
-  document.getElementById('clear').addEventListener('click', ()=>{
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    strokesForHost=[];
-    if (conn && conn.open) conn.send({type:'clear'});
-  });
+        function connectToHost() {
+            const hostId = document.getElementById('hostIdInput').value.trim();
+            playerNumber = parseInt(document.getElementById('playerNumberInput').value);
 
-  // Join Host
-  document.getElementById('join').addEventListener('click', ()=>{
-    const hid = document.getElementById('hostId').value.trim();
-    const slot = parseInt(document.getElementById('slot').value,10);
-    const name = (document.getElementById('name').value||`Player${slot}`).trim();
-    if (!hid) return alert('請輸入 Host ID');
-    peer = new Peer(undefined, PEER_OPTIONS);
-    peer.on('open', id => console.log('my peer id:', id));
-    conn = peer.connect(hid);
-    conn.on('open', ()=>{
-      conn.send({type:'init', role:'player', slot, name});
-      alert('已連線 Host，開始比賽時請等待 Admin 出題');
-      conn.on('data', onHostData);
-    });
-    conn.on('error', e=> console.error('conn error',e));
-  });
+            if (!hostId || !playerNumber || playerNumber < 1 || playerNumber > 3) {
+                alert('請輸入有效的主控端 ID 和選手編號 (1-3)');
+                return;
+            }
 
-  // Host data handler
-  async function onHostData(msg){
-    if (!msg || !msg.type) return;
-    if (msg.type === 'new_question') {
-      // 清畫布、解鎖書寫
-      ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      strokesForHost=[];
-      document.getElementById('recognized').textContent = '—';
-      alert('新題目：' + msg.q);
-    } else if (msg.type === 'time_up') {
-      alert('時間到！請立即送出或等待系統判定。');
-    } else if (msg.type === 'judgement' || msg.type === 'override_result') {
-      // host->player judgement (handled by player UI if needed)
-      console.log('host judgement', msg);
-    }
-  }
+            peer = new Peer();
+            peer.on('open', (id) => {
+                hostConn = peer.connect(hostId);
 
-  // Submit (辨識與送出)
-  document.getElementById('submit').addEventListener('click', async ()=>{
-    const recognized = await recognizeInk();
-    document.getElementById('recognized').textContent = recognized || '(無)';
-    if (conn && conn.open) conn.send({type:'submit', recognized});
-  });
+                hostConn.on('open', () => {
+                    hostConn.send({
+                        type: 'identify',
+                        role: 'player',
+                        playerNumber: playerNumber
+                    });
 
-  // Appeal
-  document.getElementById('appeal').addEventListener('click', ()=>{
-    if (conn && conn.open) conn.send({type:'request_review'});
-    alert('已發出申訴請求，請等待 Admin 覆核');
-  });
+                    document.getElementById('connectionScreen').style.display = 'none';
+                    document.getElementById('gameScreen').classList.add('active');
+                    document.getElementById('playerBadge').textContent = `選手 ${playerNumber}`;
+                    document.getElementById('statusIndicator').classList.add('connected');
 
-  // Handwriting recognition: 優先使用瀏覽器 Handwriting Recognition API（若支援）
-  async function recognizeInk(){
-    // If WICG Handwriting API is available
-    if ('createHandwritingRecognizer' in navigator) {
-      try {
-        const recognizer = await navigator.createHandwritingRecognizer({languages:['zh-Hant','zh-TW','zh']});
-        const drawing = recognizer.startDrawing({recognitionType:'text', inputType:['touch','pen','mouse']});
-        // Convert our strokesForHost to HandwritingStroke objects by replaying points
-        // The API expects HandwritingStroke instances; create them and add points
-        for (const stroke of strokesForHost){
-          const hstroke = new HandwritingStroke();
-          const startTime = Date.now();
-          stroke.forEach((p, idx) => {
-            // p are percentage coords relative to canvas size — convert to actual px for API
-            const x = p.x * canvas.width;
-            const y = p.y * canvas.height;
-            const t = idx*10; // relative timestamp (ms) — approximate
-            hstroke.addPoint({x, y, t});
-          });
-          drawing.addStroke(hstroke);
+                    initCanvas();
+                });
+
+                hostConn.on('data', (data) => {
+                    handleIncomingData(data);
+                });
+
+                hostConn.on('error', (err) => {
+                    console.error('Connection error:', err);
+                    alert('連線錯誤：' + err.message);
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+                alert('錯誤：' + err.message);
+            });
         }
-        // getPrediction returns an array of predictions
-        const preds = await drawing.getPrediction();
-        const best = preds && preds[0] ? preds[0].text : '';
-        // cleanup
-        drawing.clear();
-        recognizer.finish();
-        return best;
-      } catch (e){
-        console.warn('Handwriting API failed, fallback to image OCR', e);
-      }
-    }
 
-    // Fallback: use Google Cloud Vision OCR (DOCUMENT_TEXT_DETECTION) if API key provided.
-    if (GOOGLE_CLOUD_VISION_API_KEY) {
-      try {
-        // take snapshot
-        const dataUrl = canvas.toDataURL('image/png');
-        const body = {
-          requests: [{
-            image: { content: dataUrl.split(',')[1] },
-            features: [{ type: 'DOCUMENT_TEXT_DETECTION', maxResults: 1 }]
-          }]
-        };
-        const res = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_CLOUD_VISION_API_KEY}`, {
-          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+        function initCanvas() {
+            canvas = document.getElementById('drawingCanvas');
+            ctx = canvas.getContext('2d');
+
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = '#FF6B35';
+            ctx.lineWidth = 4;
+
+            // Touch events
+            canvas.addEventListener('touchstart', startDrawing);
+            canvas.addEventListener('touchmove', draw);
+            canvas.addEventListener('touchend', stopDrawing);
+
+            // Mouse events (for testing)
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseleave', stopDrawing);
+        }
+
+        function handleIncomingData(data) {
+            if (data.type === 'newQuestion') {
+                startNewQuestion(data);
+            } else if (data.type === 'result') {
+                showResult(data.correct);
+            } else if (data.type === 'overrideResult') {
+                showOverrideResult(data.correct);
+            }
+        }
+
+        function startNewQuestion(data) {
+            document.getElementById('questionNumber').textContent = `第 ${data.questionNumber} 題`;
+            document.getElementById('questionTextHeader').textContent = data.question;
+            document.getElementById('canvasOverlay').classList.add('hidden');
+            document.getElementById('resultOverlay').classList.remove('show');
+            document.getElementById('appealBtn').classList.remove('visible');
+            
+            clearCanvas();
+            canSubmit = true;
+            document.getElementById('submitBtn').disabled = false;
+        }
+
+        function startDrawing(e) {
+            if (!canSubmit) return;
+
+            isDrawing = true;
+            const pos = getPosition(e);
+            lastX = pos.x;
+            lastY = pos.y;
+            
+            // 初始化新的筆畫，記錄起始點
+            currentStroke = [{
+                x: pos.x / canvas.width,
+                y: pos.y / canvas.height,
+                t: Date.now()
+            }];
+
+            console.log('Start drawing stroke', strokes.length + 1);
+        }
+
+        function draw(e) {
+            if (!isDrawing || !canSubmit) return;
+            e.preventDefault();
+
+            const pos = getPosition(e);
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+
+            // Send stroke to host for real-time display
+            if (hostConn && hostConn.open) {
+                hostConn.send({
+                    type: 'stroke',
+                    playerNumber: playerNumber,
+                    stroke: {
+                        x: lastX / canvas.width,
+                        y: lastY / canvas.height,
+                        x2: pos.x / canvas.width,
+                        y2: pos.y / canvas.height
+                    }
+                });
+            }
+
+            // 記錄這個點到當前筆畫
+            currentStroke.push({
+                x: pos.x / canvas.width,
+                y: pos.y / canvas.height,
+                t: Date.now()
+            });
+
+            lastX = pos.x;
+            lastY = pos.y;
+        }
+
+        function stopDrawing() {
+            if (isDrawing && currentStroke && currentStroke.length > 0) {
+                // 將完整的筆畫加入到 strokes 陣列
+                strokes.push([...currentStroke]);
+                console.log('Finished stroke', strokes.length, 'with', currentStroke.length, 'points');
+            }
+            isDrawing = false;
+            currentStroke = [];
+        }
+
+        function getPosition(e) {
+            const rect = canvas.getBoundingClientRect();
+            if (e.touches && e.touches.length > 0) {
+                return {
+                    x: e.touches[0].clientX - rect.left,
+                    y: e.touches[0].clientY - rect.top
+                };
+            } else {
+                return {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+            }
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            strokes = [];
+            currentStroke = [];
+
+            if (hostConn && hostConn.open) {
+                hostConn.send({
+                    type: 'clear',
+                    playerNumber: playerNumber
+                });
+            }
+        }
+
+        async function submitAnswer() {
+            if (!canSubmit || strokes.length === 0) {
+                alert('請先書寫答案');
+                return;
+            }
+
+            canSubmit = false;
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('waitingOverlay').classList.remove('hidden');
+
+            try {
+                const character = await recognizeHandwriting();
+                
+                document.getElementById('waitingOverlay').classList.add('hidden');
+
+                if (hostConn && hostConn.open) {
+                    hostConn.send({
+                        type: 'submit',
+                        playerNumber: playerNumber,
+                        character: character
+                    });
+                }
+            } catch (error) {
+                console.error('Recognition error:', error);
+                document.getElementById('waitingOverlay').classList.add('hidden');
+                alert('辨識失敗，請重試');
+                canSubmit = true;
+                document.getElementById('submitBtn').disabled = false;
+            }
+        }
+
+        async function recognizeHandwriting() {
+            console.log('Total strokes:', strokes.length);
+            
+            // 轉換筆跡格式為 Google Handwriting API 格式
+            // 確保收集所有筆畫，不只是第一筆
+            const ink = [];
+            
+            for (let i = 0; i < strokes.length; i++) {
+                const stroke = strokes[i];
+                if (stroke && stroke.length > 0) {
+                    const xPoints = [];
+                    const yPoints = [];
+                    
+                    for (let j = 0; j < stroke.length; j++) {
+                        xPoints.push(Math.round(stroke[j].x * 1000));
+                        yPoints.push(Math.round(stroke[j].y * 1000));
+                    }
+                    
+                    ink.push([xPoints, yPoints]);
+                }
+            }
+
+            console.log('Ink data:', ink.length + ' strokes');
+
+            if (ink.length === 0) {
+                throw new Error('沒有筆畫資料');
+            }
+
+            const requestData = {
+                options: 'enable_pre_space',
+                requests: [{
+                    writing_guide: {
+                        writing_area_width: 1000,
+                        writing_area_height: 1000
+                    },
+                    ink: ink,
+                    language: 'zh_TW'
+                }]
+            };
+
+            console.log('Sending request:', JSON.stringify(requestData));
+
+            const response = await fetch(`https://inputtools.google.com/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            const data = await response.json();
+            console.log('Response:', data);
+
+            if (data && data[1] && data[1][0] && data[1][0][1] && data[1][0][1].length > 0) {
+                const recognizedChar = data[1][0][1][0];
+                console.log('Recognized:', recognizedChar);
+                return recognizedChar;
+            } else {
+                throw new Error('辨識失敗：無法識別字元');
+            }
+        }
+
+        function showResult(correct) {
+            const overlay = document.getElementById('resultOverlay');
+            overlay.className = 'result-overlay show ' + (correct ? 'correct' : 'incorrect');
+            
+            document.getElementById('resultIcon').textContent = correct ? '✓' : '✗';
+            document.getElementById('resultText').textContent = correct ? '正確！' : '錯誤！';
+
+            if (!correct) {
+                document.getElementById('appealBtn').classList.add('visible');
+            }
+
+            setTimeout(() => {
+                overlay.classList.remove('show');
+            }, 3000);
+        }
+
+        function showOverrideResult(correct) {
+            const overlay = document.getElementById('resultOverlay');
+            overlay.className = 'result-overlay show ' + (correct ? 'correct' : 'incorrect');
+            
+            document.getElementById('resultIcon').textContent = correct ? '✓' : '✗';
+            document.getElementById('resultText').textContent = correct ? '審核通過！' : '審核駁回';
+
+            setTimeout(() => {
+                overlay.classList.remove('show');
+            }, 3000);
+
+            document.getElementById('appealBtn').classList.remove('visible');
+        }
+
+        function requestAppeal() {
+            if (hostConn && hostConn.open) {
+                hostConn.send({
+                    type: 'appeal',
+                    playerNumber: playerNumber
+                });
+            }
+            alert('已發送審核請求');
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (canvas) {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                ctx.putImageData(imageData, 0, 0);
+            }
         });
-        const j = await res.json();
-        const text = j?.responses?.[0]?.fullTextAnnotation?.text || (j?.responses?.[0]?.textAnnotations?.[0]?.description || '');
-        return (text || '').split('\n').join('').trim();
-      } catch (e){
-        console.error('Vision API error', e);
-        return '';
-      }
-    }
-
-    // 最後的最後：嘗試用最簡單的 canvas->image->OCR 但不實作（提示用戶）
-    alert('此裝置不支援瀏覽器手寫 API，且未設定 Google Vision API KEY，請在支援的 Chrome 或設定 API KEY 後重試。');
-    return '';
-  }
-
-  // Safety: Peer errors
-  window.addEventListener('unload', ()=> { if (peer) peer.destroy(); });
-  </script>
+    </script>
 </body>
 </html>
