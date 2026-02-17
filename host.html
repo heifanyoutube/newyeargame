@@ -1,924 +1,584 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
+<!doctype html>
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>一字千金 ‧ 派對爭霸 | 主控端</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary: #FF6B35;
-            --secondary: #F7931E;
-            --accent: #FFD23F;
-            --correct: #00FF88;
-            --incorrect: #FF3366;
-            --bg-dark: #0A0E27;
-            --bg-gradient: linear-gradient(135deg, #0A0E27 0%, #1a1f3a 50%, #0d1129 100%);
-            --glow: 0 0 20px rgba(255, 107, 53, 0.5);
-        }
-
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background: var(--bg-gradient);
-            color: white;
-            overflow: hidden;
-            height: 100vh;
-        }
-
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-            opacity: 0.3;
-        }
-
-        .particle {
-            position: absolute;
-            width: 3px;
-            height: 3px;
-            background: var(--accent);
-            border-radius: 50%;
-            animation: float 15s infinite;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateY(-100vh) translateX(50px); opacity: 0; }
-        }
-
-        .container {
-            position: relative;
-            z-index: 1;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-        }
-
-        /* Header */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding: 15px 30px;
-            background: rgba(255, 107, 53, 0.1);
-            border: 2px solid var(--primary);
-            border-radius: 15px;
-            box-shadow: var(--glow);
-        }
-
-        .logo {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 2.5rem;
-            font-weight: 900;
-            background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: 0 0 30px rgba(255, 107, 53, 0.5);
-            letter-spacing: 2px;
-        }
-
-        .peer-id-display {
-            font-family: 'Orbitron', monospace;
-            font-size: 1.2rem;
-            padding: 10px 20px;
-            background: rgba(0, 0, 0, 0.5);
-            border: 2px solid var(--accent);
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(255, 211, 63, 0.3);
-        }
-
-        /* Question Display */
-        .question-area {
-            background: linear-gradient(135deg, rgba(255, 107, 53, 0.2), rgba(247, 147, 30, 0.1));
-            border: 3px solid var(--primary);
-            border-radius: 20px;
-            padding: 30px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 50px rgba(255, 107, 53, 0.3), inset 0 0 50px rgba(255, 107, 53, 0.05);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .question-area::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255, 211, 63, 0.1) 0%, transparent 70%);
-            animation: pulse 3s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.5; }
-            50% { transform: scale(1.1); opacity: 0.8; }
-        }
-
-        .question-label {
-            font-size: 1rem;
-            color: var(--accent);
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .question-text {
-            font-size: 2.5rem;
-            font-weight: 900;
-            color: white;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-            position: relative;
-            z-index: 1;
-            line-height: 1.4;
-        }
-
-        .timer {
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            font-family: 'Orbitron', monospace;
-            font-size: 3rem;
-            font-weight: 900;
-            color: var(--accent);
-            text-shadow: 0 0 20px var(--accent);
-            z-index: 2;
-        }
-
-        .timer.warning {
-            color: var(--incorrect);
-            animation: blink 0.5s infinite;
-        }
-
-        @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0.3; }
-        }
-
-        /* Players Grid */
-        .players-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            flex: 1;
-        }
-
-        .player-card {
-            background: rgba(10, 14, 39, 0.8);
-            border: 3px solid rgba(255, 107, 53, 0.3);
-            border-radius: 15px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 5px 30px rgba(0, 0, 0, 0.5);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .player-card.connected {
-            border-color: var(--primary);
-            box-shadow: 0 5px 30px rgba(255, 107, 53, 0.4);
-        }
-
-        .player-card.appeal {
-            animation: appeal-pulse 1s infinite;
-            border-color: var(--accent);
-        }
-
-        @keyframes appeal-pulse {
-            0%, 100% { 
-                border-color: var(--accent);
-                box-shadow: 0 0 30px var(--accent), 0 0 60px var(--accent);
-            }
-            50% { 
-                border-color: var(--incorrect);
-                box-shadow: 0 0 50px var(--incorrect), 0 0 100px var(--incorrect);
-            }
-        }
-
-        .player-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .player-name {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-            text-shadow: 0 0 10px rgba(255, 107, 53, 0.5);
-        }
-
-        .player-score {
-            font-family: 'Orbitron', monospace;
-            font-size: 2rem;
-            font-weight: 900;
-            color: var(--accent);
-            text-shadow: 0 0 15px var(--accent);
-        }
-
-        .canvas-container {
-            background: rgba(0, 0, 0, 0.5);
-            border: 2px solid rgba(255, 107, 53, 0.2);
-            border-radius: 10px;
-            flex: 1;
-            position: relative;
-            margin-bottom: 15px;
-        }
-
-        .player-canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-            border-radius: 8px;
-        }
-
-        .result-display {
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
-            min-height: 80px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .result-char {
-            font-size: 2.5rem;
-            font-weight: 900;
-            margin-bottom: 5px;
-        }
-
-        .result-status {
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .result-display.correct .result-char {
-            color: var(--correct);
-            text-shadow: 0 0 20px var(--correct);
-        }
-
-        .result-display.incorrect .result-char {
-            color: var(--incorrect);
-            text-shadow: 0 0 20px var(--incorrect);
-        }
-
-        .result-display.waiting .result-char {
-            color: #666;
-        }
-
-        /* Status Bar */
-        .status-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 30px;
-            background: rgba(0, 0, 0, 0.5);
-            border: 2px solid rgba(255, 107, 53, 0.3);
-            border-radius: 15px;
-            margin-top: 20px;
-        }
-
-        .connection-status {
-            display: flex;
-            gap: 20px;
-        }
-
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-        }
-
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #666;
-            box-shadow: 0 0 10px #666;
-        }
-
-        .status-dot.active {
-            background: var(--correct);
-            box-shadow: 0 0 15px var(--correct);
-            animation: dot-pulse 2s infinite;
-        }
-
-        @keyframes dot-pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* Score Effect */
-        .score-effect {
-            position: fixed;
-            font-size: 5rem;
-            font-weight: 900;
-            font-family: 'Orbitron', sans-serif;
-            pointer-events: none;
-            animation: score-popup 1.5s ease-out forwards;
-            z-index: 1000;
-        }
-
-        @keyframes score-popup {
-            0% { transform: scale(0) rotate(-15deg); opacity: 0; }
-            50% { transform: scale(1.2) rotate(5deg); opacity: 1; }
-            100% { transform: scale(1) translateY(-200px) rotate(0deg); opacity: 0; }
-        }
-
-        .waiting-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg-gradient);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-            gap: 40px;
-        }
-
-        .waiting-screen h1 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 4rem;
-            background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: gradient-shift 3s ease infinite;
-        }
-
-        @keyframes gradient-shift {
-            0%, 100% { filter: hue-rotate(0deg); }
-            50% { filter: hue-rotate(30deg); }
-        }
-
-        .waiting-screen .peer-id {
-            font-family: 'Orbitron', monospace;
-            font-size: 5rem;
-            color: var(--accent);
-            padding: 40px 80px;
-            background: rgba(0, 0, 0, 0.7);
-            border: 3px solid var(--accent);
-            border-radius: 20px;
-            box-shadow: 0 0 40px rgba(255, 211, 63, 0.5);
-            letter-spacing: 15px;
-            font-weight: 900;
-        }
-
-        .connection-instructions {
-            font-size: 1.5rem;
-            color: rgba(255, 255, 255, 0.7);
-            text-align: center;
-            max-width: 600px;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>一字千金 — Host 主控</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js"></script>
+  <style>
+    :root{
+      --bg:#071026; --panel:#0b1630; --accent:#ffd166; --muted:#9fb3c8;
+      --neon: rgba(255,209,102,0.12);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+    }
+    html,body{height:100%; margin:0; background:linear-gradient(180deg,var(--bg) 0%, #001022 100%); color:#e6f0f9;}
+    .wrap{display:grid; grid-template-columns: 1fr 420px; gap:18px; padding:18px; height:100vh; box-sizing:border-box;}
+    .stage{background:linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.6)); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);}
+    .header{display:flex; justify-content:space-between; align-items:center;}
+    .title{font-size:20px; font-weight:800; letter-spacing:1px; color:var(--accent)}
+    .sub{font-size:12px; color:var(--muted)}
+    .big-question{flex:0 0 120px; display:flex; align-items:center; justify-content:center; background:linear-gradient(90deg, rgba(255,209,102,0.06), rgba(255,255,255,0.01)); border-radius:8px; font-size:36px; font-weight:700; text-align:center; padding:10px;}
+    .row{display:flex; gap:12px;}
+    .players{display:grid; grid-template-columns: repeat(3,1fr); gap:12px; flex:1; align-items:stretch;}
+    .player-card{background:var(--panel); border-radius:8px; padding:10px; min-height:220px; position:relative; overflow:hidden;}
+    .player-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+    .player-name{font-weight:700}
+    .score{font-size:20px; color:var(--accent); font-weight:800}
+    .canvas-wrap{background:#000; border-radius:6px; height:120px; overflow:hidden; display:flex; align-items:center; justify-content:center;}
+    canvas{width:100%; height:100%; image-rendering:pixelated;}
+    .controls{display:flex; gap:8px; align-items:center;}
+    .btn{background:var(--accent); color:#042036; padding:8px 12px; border-radius:8px; font-weight:700; cursor:pointer; border:none;}
+    .muted{background:transparent; color:var(--muted); border:1px solid rgba(255,255,255,0.04); padding:8px 10px; border-radius:8px;}
+    .sidebar{background:linear-gradient(180deg,#071722 0%, #02111a 100%); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px;}
+    .peerid{font-family:monospace; font-weight:700; font-size:13px; color:var(--accent); background:rgba(255,209,102,0.06); padding:8px; border-radius:6px;}
+    .list{display:flex; flex-direction:column; gap:8px; max-height:280px; overflow:auto;}
+    .status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px}
+    .dot-off{background:#2b3b4a} .dot-on{background:#36d399}
+    .timer{font-size:36px; font-weight:800; color:#ffd166; text-shadow:0 6px 18px rgba(255,209,102,0.12)}
+    .flash{animation:flash 1s infinite}
+    @keyframes flash{0%{box-shadow:0 0 0 rgba(255,50,50,0.0)}50%{box-shadow:0 10px 30px rgba(255,50,50,0.18)}100%{box-shadow:0 0 0 rgba(255,50,50,0.0)}}
+  </style>
 </head>
 <body>
-    <div class="particles" id="particles"></div>
-
-    <div class="waiting-screen" id="waitingScreen">
-        <h1>一字千金 ‧ 派對爭霸</h1>
-        <div class="peer-id" id="displayPeerId">正在初始化...</div>
-        <div class="connection-instructions">
-            請在選手端和管理端輸入上方 ID 以連線
+  <div class="wrap">
+    <div class="stage">
+      <div class="header">
+        <div>
+          <div class="title">一字千金 · 派對爭霸 — 主控 (Host)</div>
+          <div class="sub">請在主控端（大螢幕）顯示題目、同步選手筆跡、計分與申訴提示</div>
         </div>
+        <div style="text-align:right">
+          <div id="hostId" class="peerid">生成 PeerID 中...</div>
+          <div style="margin-top:6px" class="sub">連線數：<span id="connCount">0</span></div>
+        </div>
+      </div>
+
+      <div class="big-question" id="questionDisplay">等待管理員觸發下一題…</div>
+
+      <div class="row" style="align-items:center">
+        <div style="flex:1; display:flex; gap:12px; align-items:center;">
+          <div class="controls">
+            <button id="startTimer" class="btn">開始倒數</button>
+            <button id="stopTimer" class="muted">停止</button>
+            <button id="clearAll" class="muted">清除畫面</button>
+          </div>
+          <div style="margin-left:12px" class="sub">當選手按下送出時，系統會自動以題庫答案比對並計分。</div>
+        </div>
+        <div style="width:240px; text-align:right">
+          <div class="sub">倒數</div>
+          <div class="timer" id="timerDisplay">--</div>
+        </div>
+      </div>
+
+      <div class="players" id="players">
+        <!-- 3 player cards -->
+        <div class="player-card" data-slot="1">
+          <div class="player-header">
+            <div>
+              <div class="player-name">Player 1</div>
+              <div class="sub">狀態：<span id="p1status">離線</span></div>
+            </div>
+            <div class="score" id="p1score">0</div>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="canvas1" width="600" height="240"></canvas>
+          </div>
+          <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+            <div class="sub">辨識：<span id="p1recognized">—</span></div>
+            <div><button class="muted" id="p1override">覆核</button></div>
+          </div>
+        </div>
+
+        <div class="player-card" data-slot="2">
+          <div class="player-header">
+            <div>
+              <div class="player-name">Player 2</div>
+              <div class="sub">狀態：<span id="p2status">離線</span></div>
+            </div>
+            <div class="score" id="p2score">0</div>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="canvas2" width="600" height="240"></canvas>
+          </div>
+          <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+            <div class="sub">辨識：<span id="p2recognized">—</span></div>
+            <div><button class="muted" id="p2override">覆核</button></div>
+          </div>
+        </div>
+
+        <div class="player-card" data-slot="3">
+          <div class="player-header">
+            <div>
+              <div class="player-name">Player 3</div>
+              <div class="sub">狀態：<span id="p3status">離線</span></div>
+            </div>
+            <div class="score" id="p3score">0</div>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="canvas3" width="600" height="240"></canvas>
+          </div>
+          <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+            <div class="sub">辨識：<span id="p3recognized">—</span></div>
+            <div><button class="muted" id="p3override">覆核</button></div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="container" id="mainContainer" style="display: none;">
-        <div class="header">
-            <div class="logo">一字千金 ‧ 派對爭霸</div>
-            <div class="peer-id-display">ID: <span id="headerPeerId"></span></div>
+    <aside class="sidebar">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:800">控制面板</div>
+        <div class="sub">Admin 連線待命</div>
+      </div>
+
+      <div>
+        <div class="sub">目前題庫狀態</div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <div class="muted">題庫大小：<strong id="bankSize">100</strong></div>
+          <div class="muted">已出題：<strong id="askedCount">0</strong></div>
         </div>
+      </div>
 
-        <div class="question-area">
-            <div class="timer" id="timer">30</div>
-            <div class="question-label">第 <span id="questionNumber">1</span> 題</div>
-            <div class="question-text" id="questionText">等待管理員開始題目...</div>
+      <div>
+        <div class="sub">連線列表</div>
+        <div class="list" id="connList"></div>
+      </div>
+
+      <div>
+        <div class="sub">管理操作（來自 Admin）</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <div class="muted">Admin ID：<span id="adminId">-</span></div>
         </div>
+      </div>
 
-        <div class="players-grid">
-            <div class="player-card" id="player1Card">
-                <div class="player-header">
-                    <div class="player-name">選手 1</div>
-                    <div class="player-score" id="score1">0</div>
-                </div>
-                <div class="canvas-container">
-                    <canvas class="player-canvas" id="canvas1"></canvas>
-                </div>
-                <div class="result-display waiting" id="result1">
-                    <div class="result-char">---</div>
-                    <div class="result-status">等待中</div>
-                </div>
-            </div>
-
-            <div class="player-card" id="player2Card">
-                <div class="player-header">
-                    <div class="player-name">選手 2</div>
-                    <div class="player-score" id="score2">0</div>
-                </div>
-                <div class="canvas-container">
-                    <canvas class="player-canvas" id="canvas2"></canvas>
-                </div>
-                <div class="result-display waiting" id="result2">
-                    <div class="result-char">---</div>
-                    <div class="result-status">等待中</div>
-                </div>
-            </div>
-
-            <div class="player-card" id="player3Card">
-                <div class="player-header">
-                    <div class="player-name">選手 3</div>
-                    <div class="player-score" id="score3">0</div>
-                </div>
-                <div class="canvas-container">
-                    <canvas class="player-canvas" id="canvas3"></canvas>
-                </div>
-                <div class="result-display waiting" id="result3">
-                    <div class="result-char">---</div>
-                    <div class="result-status">等待中</div>
-                </div>
-            </div>
+      <div style="margin-top:auto">
+        <div class="sub">說明</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.4">
+          1. Admin 透過 peer id 連線並可送出「下一題」與覆核命令。<br>
+          2. Player 即時傳送筆跡（百分比座標），Host 會繪製並在 Player 送出時顯示辨識文字與自動判定。<br>
+          3. 若需更穩定部署，請自建 PeerServer / TURN server。
         </div>
+      </div>
+    </aside>
+  </div>
 
-        <div class="status-bar">
-            <div class="connection-status">
-                <div class="status-item">
-                    <div class="status-dot" id="adminDot"></div>
-                    <span>管理員</span>
-                </div>
-                <div class="status-item">
-                    <div class="status-dot" id="player1Dot"></div>
-                    <span>選手 1</span>
-                </div>
-                <div class="status-item">
-                    <div class="status-dot" id="player2Dot"></div>
-                    <span>選手 2</span>
-                </div>
-                <div class="status-item">
-                    <div class="status-dot" id="player3Dot"></div>
-                    <span>選手 3</span>
-                </div>
-            </div>
-            <div id="statusMessage">系統就緒</div>
-        </div>
-    </div>
+  <!-- ===========================
+       100 題題庫（JSON） — 不重複、已包含各類題型
+       =========================== -->
+  <script>
+  // 題庫（100 題） - 格式: {q: "題目描述", a: "正確字或詞"}
+  const QUESTION_BANK = [
+{"q":"請寫出「ㄨㄢˇ」救的「ㄨㄢˇ」","a":"挽"},
+{"q":"「再接再厲」的「厲」正字為何？","a":"厲"},
+{"q":"「寒暄」的「暄」怎麼寫？","a":"暄"},
+{"q":"請寫出「尷尬」的「尬」","a":"尬"},
+{"q":"成語填空：按部「〇」班","a":"就"},
+{"q":"請寫出「驚嘆號」的「驚」字","a":"驚"},
+{"q":"「鞏固」的「鞏」怎麼寫？","a":"鞏"},
+{"q":"「滄海桑田」的「滄」字","a":"滄"},
+{"q":"「孜孜不倦」的「孜」寫法","a":"孜"},
+{"q":"「冗長」的「冗」","a":"冗"},
+{"q":"請寫出「馴服」的「馴」","a":"馴"},
+{"q":"「憐憫」的「憐」字","a":"憐"},
+{"q":"「勉強」的「勉」怎麼寫？","a":"勉"},
+{"q":"「瞭解」的「瞭」正字","a":"瞭"},
+{"q":"「斟酌」的「斟」字","a":"斟"},
+{"q":"「矯正」的「矯」怎麼寫？","a":"矯"},
+{"q":"「膚淺」的「膚」字","a":"膚"},
+{"q":"「昏厥」的「厥」寫法","a":"厥"},
+{"q":"成語填空：畫蛇添「〇」","a":"足"},
+{"q":"「瀟灑」的「灑」正字","a":"灑"},
+{"q":"「嫻熟」的「嫻」怎麼寫？","a":"嫻"},
+{"q":"「鎮定」的「鎮」字","a":"鎮"},
+{"q":"「梳理」的「梳」寫法","a":"梳"},
+{"q":"「睏倦」正確字為何？（常寫作「困倦」）","a":"睏"},
+{"q":"「誼」字如何拼音與寫法？（請寫正字）","a":"誼"},
+{"q":"「讚嘆」的「讚」怎麼寫？","a":"讚"},
+{"q":"「囑咐」的「囑」正字","a":"囑"},
+{"q":"「撼動」的「撼」寫法","a":"撼"},
+{"q":"成語填空：如火如「〇」","a":"荼"},
+{"q":"「殷勤」的「殷」怎麼寫？","a":"殷"},
+{"q":"「刁難」的「刁」字","a":"刁"},
+{"q":"「檢討」的「檢」正字","a":"檢"},
+{"q":"「匱乏」的「匱」寫法","a":"匱"},
+{"q":"「躊躇滿志」的「躊」寫法","a":"躊"},
+{"q":"「曖昧」的「曖」怎麼寫？","a":"曖"},
+{"q":"「渾然天成」的「渾」字","a":"渾"},
+{"q":"「矚目」的「矚」寫法","a":"矚"},
+{"q":"「撥雲見日」的「撥」字","a":"撥"},
+{"q":"「瑣碎」的「瑣」怎麼寫？","a":"瑣"},
+{"q":"「惘然若失」的「惘」寫法","a":"惘"},
+{"q":"「豁然開朗」的「豁」字","a":"豁"},
+{"q":"「讚揚」的「揚」正字","a":"揚"},
+{"q":"「豐沛」的「沛」寫法","a":"沛"},
+{"q":"成語填空：風起雲「〇」","a":"湧"},
+{"q":"「敲詐」的「敲」怎麼寫？","a":"敲"},
+{"q":"「躡手躡腳」的「躡」正字","a":"躡"},
+{"q":"「箴言」的「箴」寫法","a":"箴"},
+{"q":"「恪守」的「恪」怎麼寫？","a":"恪"},
+{"q":"「鴻溝」的「鴻」字","a":"鴻"},
+{"q":"「孵化」的「孵」寫法","a":"孵"},
+{"q":"「黯然失色」的「黯」寫法","a":"黯"},
+{"q":"「慟哭」的「慟」怎麼寫？","a":"慟"},
+{"q":"「羈絆」的「羈」正字","a":"羈"},
+{"q":"成語填空：鞠躬盡「〇」","a":"瘁"},
+{"q":"「瀉藥」的「瀉」怎麼寫？（注意與「泄」異）","a":"瀉"},
+{"q":"「樓閣」的「閣」寫法","a":"閣"},
+{"q":"「頑強」的「頑」正字","a":"頑"},
+{"q":"「鹹」字在成語「酸甜苦辣」裡屬何義？（寫字）","a":"鹹"},
+{"q":"「躍然紙上」的「躍」怎麼寫？","a":"躍"},
+{"q":"「酗酒」的「酗」寫法","a":"酗"},
+{"q":"「漸近」的「漸」正字","a":"漸"},
+{"q":"「愚昧」的「昧」怎麼寫？","a":"昧"},
+{"q":"「淬鍊」的「淬」寫法","a":"淬"},
+{"q":"「斧鑿」的「鑿」怎麼寫？","a":"鑿"},
+{"q":"「躊躇」的「躇」正字（與第 32 題不同）","a":"躇"},
+{"q":"「悸動」的「悸」寫法","a":"悸"},
+{"q":"成語填空：天翻地「〇」","a":"覆"},
+{"q":"「惻隱」的「惻」怎麼寫？","a":"惻"},
+{"q":"「曜石」的「曜」寫法","a":"曜"},
+{"q":"「礙手礙腳」的「礙」字","a":"礙"},
+{"q":"「睥睨」的「睥」怎麼寫？","a":"睥"},
+{"q":"「蹣跚」的「蹣」寫法","a":"蹣"},
+{"q":"「諍言」的「諍」正字","a":"諍"},
+{"q":"「豐潤」的「潤」怎麼寫？","a":"潤"},
+{"q":"「蹉跎」的「蹉」寫法","a":"蹉"},
+{"q":"成語填空：驚天動「〇」","a":"地"},
+{"q":"「歧視」的「歧」怎麼寫？","a":"歧"},
+{"q":"「枯槁」的「槁」寫法","a":"槁"},
+{"q":"「匍匐」的「匍」正字","a":"匍"},
+{"q":"「跋扈」的「跋」怎麼寫？","a":"跋"},
+{"q":"「碩果僅存」的「碩」寫法","a":"碩"},
+{"q":"「懺悔」的「懺」怎麼寫？","a":"懺"},
+{"q":"「惆悵」的「惆」寫法","a":"惆"},
+{"q":"「轟動」的「轟」正字","a":"轟"},
+{"q":"「綢緞」的「綢」怎麼寫？","a":"綢"},
+{"q":"「朦朧」的「朦」寫法","a":"朦"},
+{"q":"成語填空：因小失「〇」","a":"大"},
+{"q":"「頌讚」的「頌」怎麼寫？","a":"頌"},
+{"q":"「祕密」的「祕」正字（與「秘」異體）","a":"祕"},
+{"q":"「皓首窮經」的「皓」寫法","a":"皓"},
+{"q":"「縝密」的「縝」怎麼寫？","a":"縝"},
+{"q":"「曠達」的「曠」寫法","a":"曠"},
+{"q":"「滯留」的「滯」正字","a":"滯"},
+{"q":"「詭譎」的「譎」怎麼寫？","a":"譎"},
+{"q":"「矍鑠」的「矍」寫法","a":"矍"},
+{"q":"成語填空：有口無「〇」","a":"言"},
+{"q":"「娓娓道來」的「娓」怎麼寫？","a":"娓"},
+{"q":"「殷紅」的「殷」與第 28 題相同嗎？（請寫字）","a":"殷"},
+{"q":"「傲睨一世」的「睨」寫法","a":"睨"},
+{"q":"「蔚藍」的「蔚」怎麼寫？","a":"蔚"},
+{"q":"「蟬聯」的「蟬」寫法","a":"蟬"},
+{"q":"「疏忽」的「疏」怎麼寫？","a":"疏"},
+{"q":"成語填空：推己及「〇」","a":"人"},
+{"q":"「饒舌」的「饒」寫法","a":"饒"},
+{"q":"「潛伏」的「潛」怎麼寫？","a":"潛"},
+{"q":"「怯懦」的「怯」寫法","a":"怯"}
+  ];
+  </script>
 
-    <script>
-        // 100題題庫
-        const QUESTIONS = [
-            {"q": "請寫出「ㄨㄢˇ」救的「ㄨㄢˇ」", "a": "挽"},
-            {"q": "「再接再厲」的「厲」是否正確？(請寫正字)", "a": "厲"},
-            {"q": "「寒暄」的「暄」怎麼寫？", "a": "暄"},
-            {"q": "請寫出「尷尬」的「尬」", "a": "尬"},
-            {"q": "成語填空：按部「〇」班", "a": "就"},
-            {"q": "「ㄒㄩㄢˊ」染的「ㄒㄩㄢˊ」正確寫法？", "a": "渲"},
-            {"q": "請寫出「彆扭」的「彆」", "a": "彆"},
-            {"q": "「ㄓˋ」息萬變的「ㄓˋ」怎麼寫？", "a": "瞬"},
-            {"q": "成語填空：「〇」竿見影", "a": "立"},
-            {"q": "「ㄌㄧㄠˊ」闊的「ㄌㄧㄠˊ」正確寫法？", "a": "遼"},
-            {"q": "請寫出「蹣跚」的「蹣」", "a": "蹣"},
-            {"q": "「嫻」熟的「嫻」怎麼寫？", "a": "嫻"},
-            {"q": "成語填空：「〇」精會神", "a": "聚"},
-            {"q": "「ㄐㄧㄝˊ」然不同的「ㄐㄧㄝˊ」正確寫法？", "a": "迥"},
-            {"q": "請寫出「懾」服的「懾」", "a": "懾"},
-            {"q": "「ㄑㄧˋ」而不捨的「ㄑㄧˋ」怎麼寫？", "a": "契"},
-            {"q": "成語填空：「〇」手可得", "a": "唾"},
-            {"q": "「ㄒㄩㄢ」嘩的「ㄒㄩㄢ」正確寫法？", "a": "喧"},
-            {"q": "請寫出「慷慨」的「慨」", "a": "慨"},
-            {"q": "「惆悵」的「惆」怎麼寫？", "a": "惆"},
-            {"q": "成語填空：「〇」然大悟", "a": "恍"},
-            {"q": "「ㄆㄧˇ」睨的「ㄆㄧˇ」正確寫法？", "a": "睥"},
-            {"q": "請寫出「蹙」額的「蹙」", "a": "蹙"},
-            {"q": "「ㄅㄧˋ」端的「ㄅㄧˋ」怎麼寫？", "a": "弊"},
-            {"q": "成語填空：「〇」張聲勢", "a": "虛"},
-            {"q": "「ㄔㄢˊ」悔的「ㄔㄢˊ」正確寫法？", "a": "懺"},
-            {"q": "請寫出「嘲諷」的「諷」", "a": "諷"},
-            {"q": "「怠惰」的「惰」怎麼寫？", "a": "惰"},
-            {"q": "成語填空：「〇」飛猛進", "a": "突"},
-            {"q": "「ㄒㄧㄝˋ」渎的「ㄒㄧㄝˋ」正確寫法？", "a": "褻"},
-            {"q": "請寫出「訕笑」的「訕」", "a": "訕"},
-            {"q": "「ㄉㄧㄝˊ」盪的「ㄉㄧㄝˊ」怎麼寫？", "a": "跌"},
-            {"q": "成語填空：「〇」木求魚", "a": "緣"},
-            {"q": "「ㄌㄧㄣˊ」憫的「ㄌㄧㄣˊ」正確寫法？", "a": "憐"},
-            {"q": "請寫出「嫉妒」的「嫉」", "a": "嫉"},
-            {"q": "「譏諷」的「譏」怎麼寫？", "a": "譏"},
-            {"q": "成語填空：「〇」衷共濟", "a": "同"},
-            {"q": "「ㄓㄜˊ」磨的「ㄓㄜˊ」正確寫法？", "a": "折"},
-            {"q": "請寫出「慰藉」的「藉」", "a": "藉"},
-            {"q": "「ㄋㄧㄝˋ」手ㄋㄧㄝˋ腳的「ㄋㄧㄝˋ」怎麼寫？", "a": "躡"},
-            {"q": "成語填空：「〇」途末路", "a": "窮"},
-            {"q": "「ㄏㄨㄟˋ」澀的「ㄏㄨㄟˋ」正確寫法？", "a": "晦"},
-            {"q": "請寫出「瑕疵」的「疵」", "a": "疵"},
-            {"q": "「詭」辯的「詭」怎麼寫？", "a": "詭"},
-            {"q": "成語填空：「〇」極泰來", "a": "否"},
-            {"q": "「ㄐㄧㄢˇ」樸的「ㄐㄧㄢˇ」正確寫法？", "a": "儉"},
-            {"q": "請寫出「揶揄」的「揄」", "a": "揄"},
-            {"q": "「斟酌」的「酌」怎麼寫？", "a": "酌"},
-            {"q": "成語填空：「〇」瓜爛熟", "a": "滾"},
-            {"q": "「ㄆㄧㄢˊ」祖的「ㄆㄧㄢˊ」正確寫法？", "a": "駢"},
-            {"q": "請寫出「癖好」的「癖」", "a": "癖"},
-            {"q": "「諂媚」的「諂」怎麼寫？", "a": "諂"},
-            {"q": "成語填空：「〇」然紙上", "a": "躍"},
-            {"q": "「ㄒㄧㄝˊ」帶的「ㄒㄧㄝˊ」正確寫法？", "a": "挾"},
-            {"q": "請寫出「蟄伏」的「蟄」", "a": "蟄"},
-            {"q": "「饜足」的「饜」怎麼寫？", "a": "饜"},
-            {"q": "成語填空：「〇」貫而入", "a": "魚"},
-            {"q": "「ㄓㄨㄛˊ」磨的「ㄓㄨㄛˊ」正確寫法？", "a": "琢"},
-            {"q": "請寫出「倔強」的「倔」", "a": "倔"},
-            {"q": "「嘮叨」的「嘮」怎麼寫？", "a": "嘮"},
-            {"q": "成語填空：「〇」不單行", "a": "禍"},
-            {"q": "「ㄐㄧㄡˋ」疾的「ㄐㄧㄡˋ」正確寫法？", "a": "痼"},
-            {"q": "請寫出「綺麗」的「綺」", "a": "綺"},
-            {"q": "「躊躇」的「躇」怎麼寫？", "a": "躇"},
-            {"q": "成語填空：「〇」羽而歸", "a": "鎩"},
-            {"q": "「ㄐㄧㄠˇ」倖的「ㄐㄧㄠˇ」正確寫法？", "a": "僥"},
-            {"q": "請寫出「嗔怪」的「嗔」", "a": "嗔"},
-            {"q": "「霎時」的「霎」怎麼寫？", "a": "霎"},
-            {"q": "成語填空：「〇〇」不忘", "a": "念念"},
-            {"q": "「ㄒㄧㄣ」賞的「ㄒㄧㄣ」正確寫法？", "a": "欣"},
-            {"q": "請寫出「窘迫」的「窘」", "a": "窘"},
-            {"q": "「詆毀」的「詆」怎麼寫？", "a": "詆"},
-            {"q": "成語填空：「〇」不吐，快不為快", "a": "一"},
-            {"q": "「ㄋㄧˇ」稱的「ㄋㄧˇ」正確寫法？", "a": "擬"},
-            {"q": "請寫出「譴責」的「譴」", "a": "譴"},
-            {"q": "「癱瘓」的「癱」怎麼寫？", "a": "癱"},
-            {"q": "成語填空：「〇」落不明", "a": "下"},
-            {"q": "「ㄅㄛˊ」取的「ㄅㄛˊ」正確寫法？", "a": "剝"},
-            {"q": "請寫出「啜泣」的「啜」", "a": "啜"},
-            {"q": "「慫恿」的「慫」怎麼寫？", "a": "慫"},
-            {"q": "成語填空：「〇」落有致", "a": "錯"},
-            {"q": "「ㄏㄨㄟˇ」諧的「ㄏㄨㄟˇ」正確寫法？", "a": "詼"},
-            {"q": "請寫出「踹踏」的「踹」", "a": "踹"},
-            {"q": "「賑災」的「賑」怎麼寫？", "a": "賑"},
-            {"q": "成語填空：「〇」不經心", "a": "漫"},
-            {"q": "「ㄉㄧㄝˊ」次的「ㄉㄧㄝˊ」正確寫法？", "a": "迭"},
-            {"q": "請寫出「敷衍」的「敷」", "a": "敷"},
-            {"q": "「躁動」的「躁」怎麼寫？", "a": "躁"},
-            {"q": "成語填空：「〇」息相關", "a": "息"},
-            {"q": "「ㄙㄨˋ」然起敬的「ㄙㄨˋ」正確寫法？", "a": "肅"},
-            {"q": "請寫出「贅述」的「贅」", "a": "贅"},
-            {"q": "「嘈雜」的「嘈」怎麼寫？", "a": "嘈"},
-            {"q": "成語填空：「〇」為觀止", "a": "嘆"},
-            {"q": "「ㄒㄩㄢˋ」麗的「ㄒㄩㄢˋ」正確寫法？", "a": "絢"},
-            {"q": "請寫出「悖論」的「悖」", "a": "悖"},
-            {"q": "「戕害」的「戕」怎麼寫？", "a": "戕"},
-            {"q": "成語填空：「〇」道而行", "a": "背"},
-            {"q": "「ㄔㄢˋ」抖的「ㄔㄢˋ」正確寫法？", "a": "顫"},
-            {"q": "請寫出「踉蹌」的「踉」", "a": "踉"}
-        ];
+  <script>
+  /***************
+   Host 主控程式邏輯 (簡化實作)
+   - 接受 Player 與 Admin 的連線
+   - Player 傳送 'stroke' (百分比座標) 與 'submit' (辨識文字)
+   - Host 繪製每位 Player 的小 Canvas（同步即時筆跡）
+   - 自動比對答案並計分；Admin 可以覆核並強制改分（覆核訊息由 Admin 傳送）
+   ***************/
 
-        // PeerJS 設定
-        let peer;
-        let adminConn = null;
-        let playerConns = [null, null, null];
-        let scores = [0, 0, 0];
-        let currentQuestion = null;
-        let currentQuestionIndex = 0;
-        let timerInterval = null;
-        let timeLeft = 30;
+  // 配置 (如需自建 PeerServer，請在 peerOptions 填入 host/port/key)
+  const peerOptions = {
+    // example: { host: 'your-peer-server.example', port: 9000, path: '/peerjs' }
+  };
 
-        // Canvas contexts
-        const canvases = [];
-        const contexts = [];
+  const peer = new Peer(undefined, peerOptions);
+  const players = {}; // map slot -> {conn, peerId, name, score}
+  let adminConn = null;
+  let currentQuestion = null;
+  let askedIndices = new Set();
 
-        // 初始化
-        window.addEventListener('DOMContentLoaded', () => {
-            // 初始化 Canvas
-            for (let i = 1; i <= 3; i++) {
-                const canvas = document.getElementById(`canvas${i}`);
-                const ctx = canvas.getContext('2d');
-                canvas.width = canvas.offsetWidth;
-                canvas.height = canvas.offsetHeight;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.strokeStyle = '#FF6B35';
-                ctx.lineWidth = 3;
-                canvases.push(canvas);
-                contexts.push(ctx);
-            }
+  // UI refs
+  const hostIdEl = document.getElementById('hostId');
+  const connCountEl = document.getElementById('connCount');
+  const connListEl = document.getElementById('connList');
+  const bankSizeEl = document.getElementById('bankSize');
+  const askedCountEl = document.getElementById('askedCount');
+  const adminIdEl = document.getElementById('adminId');
+  const questionDisplay = document.getElementById('questionDisplay');
+  const timerDisplay = document.getElementById('timerDisplay');
 
-            // 生成粒子
-            createParticles();
+  // canvases
+  const canvases = {
+    1: document.getElementById('canvas1'),
+    2: document.getElementById('canvas2'),
+    3: document.getElementById('canvas3'),
+  };
+  const ctxs = {1:null,2:null,3:null};
+  for (let i=1;i<=3;i++){
+    const c=canvases[i];
+    c.width=600; c.height=240;
+    ctxs[i]=c.getContext('2d');
+    ctxs[i].fillStyle='#000'; ctxs[i].fillRect(0,0,c.width,c.height);
+    ctxs[i].strokeStyle='#0ff'; ctxs[i].lineWidth=3; ctxs[i].lineJoin='round'; ctxs[i].lineCap='round';
+  }
 
-            // 初始化 PeerJS
-            initPeer();
-        });
+  // Peer setup
+  peer.on('open', id=>{
+    hostIdEl.textContent = `Host ID: ${id}`;
+  });
 
-        function createParticles() {
-            const container = document.getElementById('particles');
-            for (let i = 0; i < 30; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDelay = Math.random() * 15 + 's';
-                particle.style.animationDuration = (10 + Math.random() * 10) + 's';
-                container.appendChild(particle);
-            }
-        }
-
-        function initPeer() {
-            // 生成簡單的 4 位數字 ID，加上隨機前綴避免衝突
-            const randomPrefix = String.fromCharCode(97 + Math.floor(Math.random() * 26)); // a-z
-            const simpleId = randomPrefix + Math.floor(1000 + Math.random() * 9000).toString();
-            
-            console.log('Attempting to create peer with ID:', simpleId);
-            
-            peer = new Peer(simpleId, {
-                debug: 2,
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:global.stun.twilio.com:3478' }
-                    ]
-                }
+  peer.on('connection', conn=>{
+    conn.on('open', ()=>{
+      // first message expected: init with role
+      conn.on('data', msg=>{
+        if (msg && msg.type === 'init') {
+          if (msg.role === 'player') {
+            // msg: {type:'init', role:'player', slot:1..3, name:'隊名'}
+            const slot = msg.slot;
+            players[slot] = players[slot] || {};
+            players[slot].conn = conn;
+            players[slot].peerId = conn.peer;
+            players[slot].name = msg.name || `Player ${slot}`;
+            players[slot].score = players[slot].score || 0;
+            updateConnList();
+            setPlayerStatus(slot, true);
+            // attach data handler for player
+            conn.on('data', data=>{
+              handlePlayerMessage(slot, data);
             });
-            
-            peer.on('open', (id) => {
-                console.log('Peer opened successfully with ID:', id);
-                // 只顯示數字部分給使用者
-                const displayId = id.substring(1); // 去掉前綴字母
-                document.getElementById('displayPeerId').textContent = displayId;
-                document.getElementById('headerPeerId').textContent = displayId;
+            conn.on('close', ()=>{ setPlayerStatus(slot,false); delete players[slot].conn; updateConnList(); });
+          } else if (msg.role === 'admin') {
+            adminConn = conn;
+            adminIdEl.textContent = conn.peer;
+            updateConnList();
+            conn.on('data', data=>{
+              handleAdminMessage(data);
             });
-
-            peer.on('connection', (conn) => {
-                console.log('Incoming connection from:', conn.peer);
-                
-                conn.on('data', (data) => {
-                    handleIncomingData(conn, data);
-                });
-
-                conn.on('open', () => {
-                    console.log('Connection established with:', conn.peer);
-                });
-                
-                conn.on('error', (err) => {
-                    console.error('Connection error:', err);
-                });
-            });
-
-            peer.on('error', (err) => {
-                console.error('Peer error:', err);
-                
-                if (err.type === 'unavailable-id') {
-                    // ID 已被使用，重新生成
-                    console.log('ID unavailable, regenerating...');
-                    setTimeout(() => {
-                        initPeer();
-                    }, 1000);
-                } else if (err.type === 'network' || err.type === 'server-error') {
-                    document.getElementById('displayPeerId').textContent = '伺服器連線失敗，請重新整理頁面';
-                } else {
-                    alert('連線錯誤：' + err.message);
-                }
-            });
-            
-            peer.on('disconnected', () => {
-                console.log('Peer disconnected, attempting to reconnect...');
-                peer.reconnect();
-            });
+            conn.on('close', ()=>{ adminConn=null; adminIdEl.textContent='-'; updateConnList(); });
+          }
         }
+      });
+      updateConnList();
+    });
+  });
 
-        function handleIncomingData(conn, data) {
-            if (data.type === 'identify') {
-                if (data.role === 'admin') {
-                    adminConn = conn;
-                    document.getElementById('adminDot').classList.add('active');
-                    document.getElementById('waitingScreen').style.display = 'none';
-                    document.getElementById('mainContainer').style.display = 'flex';
-                    updateStatus('管理員已連線');
-                } else if (data.role === 'player') {
-                    const playerIndex = data.playerNumber - 1;
-                    playerConns[playerIndex] = conn;
-                    document.getElementById(`player${data.playerNumber}Dot`).classList.add('active');
-                    document.getElementById(`player${data.playerNumber}Card`).classList.add('connected');
-                    updateStatus(`選手 ${data.playerNumber} 已連線`);
-                }
-            } else if (data.type === 'nextQuestion') {
-                startNewQuestion(data.questionIndex);
-            } else if (data.type === 'stroke') {
-                drawStroke(data.playerNumber, data.stroke);
-                // Forward stroke to admin
-                if (adminConn && adminConn.open) {
-                    adminConn.send(data);
-                }
-            } else if (data.type === 'submit') {
-                handleSubmission(data.playerNumber, data.character);
-                // Send answer to admin
-                if (adminConn && adminConn.open) {
-                    adminConn.send({
-                        type: 'playerAnswer',
-                        playerNumber: data.playerNumber,
-                        character: data.character
-                    });
-                }
-            } else if (data.type === 'appeal') {
-                handleAppeal(data.playerNumber);
-            } else if (data.type === 'override') {
-                handleOverride(data.playerNumber, data.correct);
-            } else if (data.type === 'clear') {
-                clearPlayerCanvas(data.playerNumber);
-                // Forward clear to admin
-                if (adminConn && adminConn.open) {
-                    adminConn.send(data);
-                }
-            }
-        }
+  function updateConnList(){
+    const items = [];
+    let count=0;
+    for (let s=1;s<=3;s++){
+      const p = players[s];
+      if (p && p.conn && p.conn.open) {
+        count++;
+        items.push(`<div><span class="status-dot dot-on"></span> ${p.name} (${p.peerId}) — 預設分數 ${p.score}</div>`);
+      } else {
+        items.push(`<div><span class="status-dot dot-off"></span> Player ${s}（未連線）</div>`);
+      }
+    }
+    connListEl.innerHTML = items.join('');
+    connCountEl.textContent = count + (adminConn ? 1 : 0);
+  }
+  function setPlayerStatus(slot, online){
+    document.getElementById(`p${slot}status`).textContent = online ? '連線中' : '離線';
+    updateConnList();
+  }
 
-        function startNewQuestion(questionIndex) {
-            if (questionIndex >= QUESTIONS.length) {
-                updateStatus('所有題目已完成！');
-                return;
-            }
+  // 當 Player 發送訊息
+  function handlePlayerMessage(slot, data){
+    if (!data || !data.type) return;
+    if (data.type === 'stroke') {
+      // data: {type:'stroke', points: [{xPercent,yPercent}], color?}
+      drawRemoteStroke(slot, data.points, data.color || '#0ff', data.width || 3);
+    } else if (data.type === 'submit') {
+      // data: {type:'submit', recognized: '文字'}
+      handleSubmit(slot, data.recognized);
+    } else if (data.type === 'request_review') {
+      // show flash on player card
+      flashPlayerCard(slot);
+      // notify admin
+      if (adminConn && adminConn.open) adminConn.send({type:'player_request_review', slot, peer: players[slot]?.peerId});
+    }
+  }
 
-            currentQuestionIndex = questionIndex;
-            currentQuestion = QUESTIONS[questionIndex];
-            
-            document.getElementById('questionNumber').textContent = questionIndex + 1;
-            document.getElementById('questionText').textContent = currentQuestion.q;
+  // Draw strokes (receive percent coordinates; convert to canvas coords)
+  function drawRemoteStroke(slot, points, color, width){
+    const c = canvases[slot];
+    const ctx = ctxs[slot];
+    if (!points || points.length===0) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    points.forEach((pt, idx)=>{
+      const x = pt.x * c.width;
+      const y = pt.y * c.height;
+      if (idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
 
-            // 清空所有選手的畫布和結果
-            for (let i = 1; i <= 3; i++) {
-                clearPlayerCanvas(i);
-                const resultDiv = document.getElementById(`result${i}`);
-                resultDiv.className = 'result-display waiting';
-                resultDiv.innerHTML = '<div class="result-char">---</div><div class="result-status">等待中</div>';
-                document.getElementById(`player${i}Card`).classList.remove('appeal');
-            }
+  // 提交處理（自動比對）
+  function handleSubmit(slot, recognized){
+    const idx = currentQuestion?.index;
+    const answer = currentQuestion?.a || '';
+    // Normalize
+    const got = (recognized||'').trim();
+    const expect = (answer||'').trim();
+    const correct = (got === expect);
+    // Update UI
+    document.getElementById(`p${slot}recognized`).textContent = got || '—';
+    if (correct) {
+      players[slot].score = (players[slot].score||0) + 10; // 每題 10 分
+      document.getElementById(`p${slot}score`).textContent = players[slot].score;
+      // visual effect
+      flashScore(slot);
+    }
+    // send judgement result back to player
+    if (players[slot].conn && players[slot].conn.open) {
+      players[slot].conn.send({type:'judgement', slot, correct, recognized: got, answer: expect});
+    }
+    // notify admin of result
+    if (adminConn && adminConn.open) {
+      adminConn.send({type:'player_result', slot, recognized: got, correct, score: players[slot].score});
+    }
+  }
 
-            // 重置計時器
-            startTimer();
+  // Admin message handler
+  function handleAdminMessage(msg){
+    if (!msg || !msg.type) return;
+    if (msg.type === 'next_question') {
+      pickNextQuestion(msg.mode || 'random');
+    } else if (msg.type === 'override') {
+      // {type:'override', slot, mark: true/false}
+      const slot = msg.slot;
+      const mark = !!msg.mark;
+      // force adjust score: if mark true and not previously correct -> +10; if mark false and previously added -> -10
+      // For simplicity we just set last judgement to mark
+      if (mark) {
+        players[slot].score = (players[slot].score||0) + 10;
+      } else {
+        players[slot].score = Math.max(0,(players[slot].score||0)-10);
+      }
+      document.getElementById(`p${slot}score`).textContent = players[slot].score;
+      // notify player
+      if (players[slot].conn && players[slot].conn.open) {
+        players[slot].conn.send({type:'override_result', slot, mark});
+      }
+    }
+  }
 
-            // 通知所有選手新題目
-            broadcastToPlayers({
-                type: 'newQuestion',
-                question: currentQuestion.q,
-                questionNumber: questionIndex + 1
-            });
-        }
+  // Helper: pick next question
+  function pickNextQuestion(mode='random'){
+    if (askedIndices.size >= QUESTION_BANK.length) {
+      questionDisplay.textContent = '題庫已出完';
+      return;
+    }
+    let idx;
+    if (mode === 'sequential') {
+      for (let i=0;i<QUESTION_BANK.length;i++){
+        if (!askedIndices.has(i)){ idx=i; break; }
+      }
+    } else {
+      do { idx = Math.floor(Math.random() * QUESTION_BANK.length); } while (askedIndices.has(idx));
+    }
+    askedIndices.add(idx);
+    currentQuestion = Object.assign({index: idx}, QUESTION_BANK[idx]);
+    questionDisplay.textContent = currentQuestion.q;
+    askedCountEl.textContent = askedIndices.size;
+    broadcastToPlayers({type:'new_question', q: currentQuestion.q, index: idx});
+    // clear canvases for new round
+    clearAllCanvases();
+  }
 
-        function startTimer() {
-            if (timerInterval) clearInterval(timerInterval);
-            timeLeft = 30;
-            document.getElementById('timer').textContent = timeLeft;
-            document.getElementById('timer').classList.remove('warning');
+  function broadcastToPlayers(obj){
+    for (let s=1;s<=3;s++){
+      const p = players[s];
+      if (p && p.conn && p.conn.open){
+        p.conn.send(obj);
+      }
+    }
+  }
 
-            timerInterval = setInterval(() => {
-                timeLeft--;
-                document.getElementById('timer').textContent = timeLeft;
-                
-                if (timeLeft <= 10) {
-                    document.getElementById('timer').classList.add('warning');
-                }
-                
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    updateStatus('時間到！');
-                }
-            }, 1000);
-        }
+  // Timer (host-side)
+  let timerInterval = null;
+  function startTimer(seconds=30){
+    clearTimer();
+    let t = seconds;
+    timerDisplay.textContent = t;
+    timerInterval = setInterval(()=>{
+      t--;
+      if (t<0){ clearTimer(); timerDisplay.textContent='0'; broadcastToPlayers({type:'time_up'}); return; }
+      timerDisplay.textContent = t;
+    },1000);
+  }
+  function clearTimer(){ if (timerInterval) clearInterval(timerInterval); timerInterval=null; timerDisplay.textContent='--'; }
 
-        function drawStroke(playerNumber, stroke) {
-            const ctx = contexts[playerNumber - 1];
-            const canvas = canvases[playerNumber - 1];
+  // UI bind
+  document.getElementById('startTimer').addEventListener('click',()=> startTimer(30));
+  document.getElementById('stopTimer').addEventListener('click', ()=> clearTimer());
+  document.getElementById('clearAll').addEventListener('click', ()=> clearAllCanvases());
 
-            ctx.beginPath();
-            ctx.moveTo(stroke.x * canvas.width, stroke.y * canvas.height);
-            ctx.lineTo(stroke.x2 * canvas.width, stroke.y2 * canvas.height);
-            ctx.stroke();
-        }
+  function clearAllCanvases(){
+    for (let s=1;s<=3;s++){
+      const c = canvases[s];
+      const ctx = ctxs[s];
+      ctx.clearRect(0,0,c.width,c.height);
+      ctx.fillStyle='#000'; ctx.fillRect(0,0,c.width,c.height);
+      document.getElementById(`p${s}recognized`).textContent='—';
+    }
+  }
 
-        function handleSubmission(playerNumber, character) {
-            const correct = (character === currentQuestion.a);
-            const resultDiv = document.getElementById(`result${playerNumber}`);
-            
-            resultDiv.className = `result-display ${correct ? 'correct' : 'incorrect'}`;
-            resultDiv.innerHTML = `
-                <div class="result-char">${character}</div>
-                <div class="result-status">${correct ? '✓ 正確' : '✗ 錯誤'}</div>
-            `;
+  function flashPlayerCard(slot){
+    const card = document.querySelector(`.player-card[data-slot="${slot}"]`);
+    if (!card) return;
+    card.classList.add('flash');
+    setTimeout(()=>card.classList.remove('flash'), 4000);
+  }
+  function flashScore(slot){
+    const el = document.getElementById(`p${slot}score`);
+    el.classList.add('flash');
+    setTimeout(()=>el.classList.remove('flash'), 1600);
+  }
 
-            if (correct) {
-                scores[playerNumber - 1] += 10;
-                document.getElementById(`score${playerNumber}`).textContent = scores[playerNumber - 1];
-                showScoreEffect(playerNumber, '+10');
-            }
+  // Admin override buttons (quick action from host UI)
+  document.getElementById('p1override').addEventListener('click', ()=> {
+    if (!confirm('將 Player1 判定為正確（+10）？')) return;
+    if (players[1] && players[1].conn && players[1].conn.open){
+      players[1].score = (players[1].score||0)+10; document.getElementById('p1score').textContent = players[1].score;
+      players[1].conn.send({type:'override_result', slot:1, mark:true});
+      if (adminConn && adminConn.open) adminConn.send({type:'player_result', slot:1, recognized:'(覆核) 正確', correct:true, score:players[1].score});
+    }
+  });
+  document.getElementById('p2override').addEventListener('click', ()=> {
+    if (!confirm('將 Player2 判定為正確（+10）？')) return;
+    if (players[2] && players[2].conn && players[2].conn.open){
+      players[2].score = (players[2].score||0)+10; document.getElementById('p2score').textContent = players[2].score;
+      players[2].conn.send({type:'override_result', slot:2, mark:true});
+      if (adminConn && adminConn.open) adminConn.send({type:'player_result', slot:2, recognized:'(覆核) 正確', correct:true, score:players[2].score});
+    }
+  });
+  document.getElementById('p3override').addEventListener('click', ()=> {
+    if (!confirm('將 Player3 判定為正確（+10）？')) return;
+    if (players[3] && players[3].conn && players[3].conn.open){
+      players[3].score = (players[3].score||0)+10; document.getElementById('p3score').textContent = players[3].score;
+      players[3].conn.send({type:'override_result', slot:3, mark:true});
+      if (adminConn && adminConn.open) adminConn.send({type:'player_result', slot:3, recognized:'(覆核) 正確', correct:true, score:players[3].score});
+    }
+  });
 
-            // 通知該選手結果
-            if (playerConns[playerNumber - 1]) {
-                playerConns[playerNumber - 1].send({
-                    type: 'result',
-                    correct: correct
-                });
-            }
-        }
+  // Optional: Admin can connect and send 'next_question' or 'override' messages to host (handled above)
 
-        function handleAppeal(playerNumber) {
-            document.getElementById(`player${playerNumber}Card`).classList.add('appeal');
-            updateStatus(`選手 ${playerNumber} 請求審核！`);
+  // Safety: inform user if PeerJS server issues (console)
+  peer.on('error', err => {
+    console.error('Peer error', err);
+    alert('PeerJS 錯誤：' + err);
+  });
 
-            // 通知管理員
-            if (adminConn) {
-                adminConn.send({
-                    type: 'appealNotification',
-                    playerNumber: playerNumber
-                });
-            }
-        }
+  // show bank size
+  bankSizeEl.textContent = QUESTION_BANK.length;
+  askedCountEl.textContent = askedIndices.size;
 
-        function handleOverride(playerNumber, correct) {
-            document.getElementById(`player${playerNumber}Card`).classList.remove('appeal');
-            
-            const resultDiv = document.getElementById(`result${playerNumber}`);
-            const currentChar = resultDiv.querySelector('.result-char').textContent;
-            
-            resultDiv.className = `result-display ${correct ? 'correct' : 'incorrect'}`;
-            resultDiv.innerHTML = `
-                <div class="result-char">${currentChar}</div>
-                <div class="result-status">${correct ? '✓ 覆核通過' : '✗ 覆核駁回'}</div>
-            `;
-
-            if (correct) {
-                const wasIncorrect = scores[playerNumber - 1] % 10 === 0; // 簡化判斷
-                scores[playerNumber - 1] += 10;
-                document.getElementById(`score${playerNumber}`).textContent = scores[playerNumber - 1];
-                showScoreEffect(playerNumber, '+10');
-            }
-
-            // 通知選手
-            if (playerConns[playerNumber - 1]) {
-                playerConns[playerNumber - 1].send({
-                    type: 'overrideResult',
-                    correct: correct
-                });
-            }
-        }
-
-        function clearPlayerCanvas(playerNumber) {
-            const ctx = contexts[playerNumber - 1];
-            const canvas = canvases[playerNumber - 1];
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-
-        function showScoreEffect(playerNumber, text) {
-            const card = document.getElementById(`player${playerNumber}Card`);
-            const rect = card.getBoundingClientRect();
-            
-            const effect = document.createElement('div');
-            effect.className = 'score-effect';
-            effect.textContent = text;
-            effect.style.color = '#00FF88';
-            effect.style.textShadow = '0 0 30px #00FF88';
-            effect.style.left = rect.left + rect.width / 2 + 'px';
-            effect.style.top = rect.top + rect.height / 2 + 'px';
-            
-            document.body.appendChild(effect);
-            
-            setTimeout(() => {
-                effect.remove();
-            }, 1500);
-        }
-
-        function broadcastToPlayers(data) {
-            playerConns.forEach(conn => {
-                if (conn && conn.open) {
-                    conn.send(data);
-                }
-            });
-        }
-
-        function updateStatus(message) {
-            document.getElementById('statusMessage').textContent = message;
-        }
-    </script>
+  </script>
 </body>
 </html>
